@@ -28,11 +28,11 @@ MagicQuill is now available in ComfyUI!!!
 For users with limited GPU resources, please try our [Huggingface Demo](https://huggingface.co/spaces/AI4Editing/MagicQuill) and [Web Demo (Alipay Cloud)](http://magic.chenjunfeng.xyz/). Also, consider disabling the DrawNGuess automatic prompt filling by clicking the wand icon above if it takes too long time on your machine.
 
 ##  Setup
-Follow the following guide to install the custom node. The ComfyUI workflow is available at `MagicQuill.json`
+Follow the following guide to install the custom node. Alternatively, you may install via ComfyUI manager. The MagicQuill workflow is available at `MagicQuill.json`.
 
 1. clone the repo (comfyui branch) in the `custom_nodes` directory
     ```
-    git clone -b comfyui https://github.com/magic-quill/MagicQuill.git ComfyUI_MagicQuill
+    git clone https://github.com/magic-quill/ComfyUI_MagicQuill.git
     cd ComfyUI_MagicQuill
     ```
 2. download and unzip checkpoints
