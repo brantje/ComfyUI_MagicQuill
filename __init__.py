@@ -1,5 +1,5 @@
 """
-@author: Zichen LIU (zliucz.github.io) and Yue YU (https://bruceyyu.github.io/)
+@author: Zichen LIU (https://zliucz.github.io/) and Yue YU (https://bruceyyu.github.io/)
 @title: MagicQuill
 @nickname: MagicQuill nodes
 @description: Official ComfyUI Implementations for Paper - MagicQuill: An Intelligent Interactive Image Editing System
