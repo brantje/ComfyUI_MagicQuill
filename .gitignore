@@ -6,6 +6,5 @@ web_dir/
 **/*.py[cod]
 **/*$py.class
 
-**/*.gif
 **/*.jpg
 **/*.jpeg
