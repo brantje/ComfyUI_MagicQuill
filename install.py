@@ -5,8 +5,8 @@ import subprocess
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 repos = {
-    'repo1': 'https://github.com/nullquant/ComfyUI-BrushNet',
-    'repo2': 'https://github.com/Fannovel16/comfyui_controlnet_aux'
+    'ComfyUI_BrushNet': 'https://github.com/nullquant/ComfyUI-BrushNet',
+    'comfyui_controlnet_aux': 'https://github.com/Fannovel16/comfyui_controlnet_aux'
 }
 
 for name, url in repos.items():
