@@ -1,6 +1,10 @@
-# Title: ComfyUI Install Customs Nodes and javascript files
-# Author: AlekPet
-# Version: 2024.06.27
+"""
+@author: Zichen LIU (zliucz.github.io) and Yue YU (https://bruceyyu.github.io/)
+@title: MagicQuill
+@nickname: MagicQuill nodes
+@description: Official ComfyUI Implementations for Paper - MagicQuill: An Intelligent Interactive Image Editing System
+"""
+
 import os
 import importlib.util
 import subprocess
