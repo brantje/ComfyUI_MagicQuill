@@ -198,7 +198,7 @@ class MagicQuill(object):
         if torch.sum(remove_edge_mask).item() > 0 and torch.sum(add_edge_mask).item() == 0:
             if positive_prompt == "":
                 positive_prompt = "empty scene"
-            edge_strength /= 2.
+            edge_strength /= 3.
 
         if not positive_prompt or positive_prompt == "":
             positive_prompt = cls.guess_prompt(original_image, add_color_image, add_edge_mask)
