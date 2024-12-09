@@ -31,7 +31,7 @@ class ScribbleColorEditModel():
         self.ksampler = KSampler()
         self.vae_decoder = VAEDecode()
         self.blender = BlendInpaint()
-        self.load_models('SD1.5', 'float16')
+        # self.load_models('SD1.5', 'float16')
 
     def load_models(self, base_model_version, dtype):
         if base_model_version == "SD1.5":
