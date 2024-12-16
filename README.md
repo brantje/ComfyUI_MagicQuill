@@ -25,7 +25,7 @@ MagicQuill is now available in ComfyUI!!!
 
 - GPU is required to run MagicQuill. **Through our testing, we have confirmed that the model can run on GPUs with 8GB VRAM (RTX4070 Laptop).**
 
-For users with limited GPU resources, please try our [Huggingface Demo](https://huggingface.co/spaces/AI4Editing/MagicQuill) and [Web Demo (Alipay Cloud)](http://magic.chenjunfeng.xyz/). Also, consider disabling the DrawNGuess automatic prompt filling by clicking the wand icon above if it takes too long time on your machine.
+For users with limited GPU resources, please try our [Huggingface Demo](https://huggingface.co/spaces/AI4Editing/MagicQuill) and [Modelscope Demo](https://modelscope.cn/studios/ant-research/MagicQuill_demo). Also, consider disabling the DrawNGuess automatic prompt filling by clicking the wand icon above if it takes too long time on your machine.
 
 ##  Setup
 Follow the following guide to install the custom node. Alternatively, you may install via ComfyUI manager. The MagicQuill workflow is available at `MagicQuill.json`.
