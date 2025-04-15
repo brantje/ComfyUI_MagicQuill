@@ -9,12 +9,20 @@ import folder_paths
 from aiohttp import web
 import io
 import base64
+import time
 
 import comfy.samplers
 from .scribble_color_edit import ScribbleColorEditModel
 from .llava_new import LLaVAModel
+import torch.nn.functional as F
 
 def tensor_to_base64(tensor):
+    if isinstance(tensor, dict) and "samples" in tensor:
+        # Handle dictionary with 'samples' key (latent)
+        # For latent, we'll just return an empty string since latents aren't viewable directly
+        return ""  # or implement specific handling for latent samples
+    
+    # For tensor input, process normally
     tensor = tensor.squeeze(0) * 255.
     pil_image = Image.fromarray(tensor.cpu().byte().numpy())
     buffered = io.BytesIO()
@@ -101,6 +109,140 @@ async def guess_prompt_handler(request):
 
     return web.json_response({"prompt": res, "error": False})
 
+@PromptServer.instance.routes.post("/magic_quill/run")
+async def run_magic_quill(request):
+    try:
+        post = await request.json()
+        base64_image = post.get("image")
+        if not base64_image:
+            return web.json_response({"error": "No image provided"}, status=400)
+
+        # Generate a unique prompt ID for this request
+        prompt_id = str(hashlib.sha256(str(time.time()).encode()).hexdigest()[:8])
+        PromptServer.instance.last_prompt_id = prompt_id
+        PromptServer.instance.last_node_id = "magic_quill"
+
+        # Load and preprocess the main image
+        image = read_base64_image(base64_image)
+        image_array = np.array(image).astype(np.float32) / 255.0
+        image_tensor = torch.from_numpy(image_array)[None,].to(device="cpu").detach()
+        
+        # Process additional base64 images if provided
+        original_image_tensor = None
+        add_color_image_tensor = None
+        add_edge_image_tensor = None
+        remove_edge_image_tensor = None
+        
+        # Process original_image if provided
+        base64_original = post.get("original_image")
+        if base64_original:
+            original_image = read_base64_image(base64_original)
+            original_array = np.array(original_image).astype(np.float32) / 255.0
+            original_image_tensor = torch.from_numpy(original_array)[None,].to(device="cpu").detach()
+        else:
+            # If no original image provided, use main image
+            original_image_tensor = image_tensor
+        
+        # Process add_color_image if provided
+        base64_add_color = post.get("add_color_image")
+        if base64_add_color:
+            add_color_image = read_base64_image(base64_add_color)
+            add_color_array = np.array(add_color_image).astype(np.float32) / 255.0
+            add_color_image_tensor = torch.from_numpy(add_color_array)[None,].to(device="cpu").detach()
+        
+        # Process add_edge_image if provided
+        base64_add_edge = post.get("add_edge_image")
+        if base64_add_edge:
+            add_edge_image = read_base64_image(base64_add_edge)
+            add_edge_array = np.array(add_edge_image).astype(np.float32) / 255.0
+            add_edge_image_tensor = torch.from_numpy(add_edge_array)[None,].to(device="cpu").detach()
+        
+        # Process remove_edge_image if provided
+        base64_remove_edge = post.get("remove_edge_image")
+        if base64_remove_edge:
+            remove_edge_image = read_base64_image(base64_remove_edge)
+            remove_edge_array = np.array(remove_edge_image).astype(np.float32) / 255.0
+            remove_edge_image_tensor = torch.from_numpy(remove_edge_array)[None,].to(device="cpu").detach()
+        
+        # Get other parameters from the request
+        checkpoint_name = post.get("checkpoint_name", "SD1.5/DreamShaper.safetensors")
+        ckpt_path = folder_paths.get_full_path_or_raise("checkpoints", checkpoint_name)
+        out = comfy.sd.load_checkpoint_guess_config(ckpt_path)
+        
+        model = out[0]
+        clip = out[1]
+        vae = out[2]
+        
+        if not model or not vae or not clip:
+            return web.json_response({"error": "Missing required model objects"}, status=400)
+            
+        base_model_version = post.get("base_model_version", "SD1.5")
+        positive_prompt = post.get("positive_prompt", "")
+        negative_prompt = post.get("negative_prompt", "")
+        dtype = post.get("dtype", "float16")
+        grow_size = post.get("grow_size", 15)
+        stroke_as_edge = post.get("stroke_as_edge", "enable")
+        fine_edge = post.get("fine_edge", "disable")
+        edge_strength = post.get("edge_strength", 0.5)
+        color_strength = post.get("color_strength", 0.5)
+        inpaint_strength = post.get("inpaint_strength", 1.0)
+        seed = post.get("seed", 0)
+        steps = post.get("steps", 20)
+        cfg = post.get("cfg", 4.0)
+        sampler_name = post.get("sampler_name", "euler_ancestral")
+        scheduler = post.get("scheduler", "exponential")
+
+        # Call painter_execute
+        result = MagicQuill.painter_execute(
+            image=image_tensor,
+            original_image=original_image_tensor,
+            add_color_image=add_color_image_tensor,
+            add_edge_image=add_edge_image_tensor,
+            remove_edge_image=remove_edge_image_tensor,
+            model=model,
+            vae=vae,
+            clip=clip,
+            base_model_version=base_model_version,
+            positive_prompt=positive_prompt,
+            negative_prompt=negative_prompt,
+            dtype=dtype,
+            grow_size=grow_size,
+            stroke_as_edge=stroke_as_edge,
+            fine_edge=fine_edge,
+            edge_strength=edge_strength,
+            color_strength=color_strength,
+            inpaint_strength=inpaint_strength,
+            seed=seed,
+            steps=steps,
+            cfg=cfg,
+            sampler_name=sampler_name,
+            scheduler=scheduler
+        )
+
+        # Convert the result tensors to base64
+        latent, image, edge_map, color_palette = result
+        
+        # Send progress update
+        PromptServer.instance.send_sync(
+            "progress", {"value": 1, "max": 1, "prompt_id": prompt_id, "node": "magic_quill"}
+        )
+        
+        return web.json_response({
+            "status": "success",
+            "result": {
+                "latent": tensor_to_base64(latent),
+                "image": tensor_to_base64(image),
+                "edge_map": tensor_to_base64(edge_map),
+                "color_palette": tensor_to_base64(color_palette)
+            }
+        })
+    except Exception as e:
+        import traceback
+        traceback_str = traceback.format_exc()
+        print(f"Error: {str(e)}\nTraceback: {traceback_str}")
+        return web.json_response({"error": str(e), "traceback": traceback_str}, status=500)
+
+
 class MagicQuill(object):
     scribbleColorEditModel = ScribbleColorEditModel()
     llavaModel = LLaVAModel()
@@ -159,27 +301,57 @@ class MagicQuill(object):
 
     @classmethod
     def prepare_images_and_masks(cls, image, original_image, add_color_image, add_edge_image, remove_edge_image):
-        image_path = folder_paths.get_annotated_filepath(image)
-        image_tensor = load_and_preprocess_image(image_path)
-        
-        width, height = image_tensor.shape[1], image_tensor.shape[2]
-        
-        total_mask = create_alpha_mask(image_path)
-        
-        original_image_path = folder_paths.get_annotated_filepath(original_image)
-        original_image_tensor = load_and_preprocess_image(original_image_path)
-        
-        if add_color_image:
-            add_color_image_path = folder_paths.get_annotated_filepath(add_color_image)
-            add_color_image_tensor = load_and_preprocess_image(add_color_image_path)
+        # Handle tensor inputs (from API)
+        if isinstance(image, torch.Tensor):
+            image_tensor = image.detach().clone().to(device="cpu")
+            height, width = image_tensor.shape[1], image_tensor.shape[2]
+            
+            # Create empty masks for API requests
+            total_mask = torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
+            
+            if isinstance(original_image, torch.Tensor):
+                original_image_tensor = original_image.detach().clone().to(device="cpu")
+            else:
+                original_image_tensor = image_tensor
+                
+            if isinstance(add_color_image, torch.Tensor):
+                add_color_image_tensor = add_color_image.detach().clone().to(device="cpu")
+            else:
+                add_color_image_tensor = original_image_tensor
+                
+            add_edge_mask = torch.zeros_like(total_mask)
+            remove_edge_mask = torch.zeros_like(total_mask)
         else:
-            add_color_image_tensor = original_image_tensor
+            # Handle file path inputs (from ComfyUI)
+            image_path = folder_paths.get_annotated_filepath(image)
+            image_tensor = load_and_preprocess_image(image_path)
+            height, width = image_tensor.shape[1], image_tensor.shape[2]
+            total_mask = create_alpha_mask(image_path)
+            
+            original_image_path = folder_paths.get_annotated_filepath(original_image)
+            original_image_tensor = load_and_preprocess_image(original_image_path)
+            
+            if add_color_image:
+                add_color_image_path = folder_paths.get_annotated_filepath(add_color_image)
+                add_color_image_tensor = load_and_preprocess_image(add_color_image_path)
+            else:
+                add_color_image_tensor = original_image_tensor
+            
+            add_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(add_edge_image)) if add_edge_image else torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
+            remove_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(remove_edge_image)) if remove_edge_image else torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
         
-        add_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(add_edge_image)) if add_edge_image else torch.zeros_like(total_mask)
+        # Ensure all tensors have correct dimensions
+        if add_edge_mask.shape[1] != height or add_edge_mask.shape[2] != width:
+            add_edge_mask = F.interpolate(add_edge_mask.unsqueeze(0), size=(height, width), mode='nearest').squeeze(0)
+            
+        if remove_edge_mask.shape[1] != height or remove_edge_mask.shape[2] != width:
+            remove_edge_mask = F.interpolate(remove_edge_mask.unsqueeze(0), size=(height, width), mode='nearest').squeeze(0)
+            
+        if total_mask.shape[1] != height or total_mask.shape[2] != width:
+            total_mask = F.interpolate(total_mask.unsqueeze(0), size=(height, width), mode='nearest').squeeze(0)
         
-        remove_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(remove_edge_image)) if remove_edge_image else torch.zeros_like(total_mask)
-        
-        return add_color_image_tensor, original_image_tensor, total_mask, add_edge_mask, remove_edge_mask
+        # Ensure all tensor operations detach gradients
+        return add_color_image_tensor.detach(), original_image_tensor.detach(), total_mask.detach(), add_edge_mask.detach(), remove_edge_mask.detach()
 
     @classmethod
     def guess_prompt(cls, original_image_tensor, add_color_image_tensor, add_edge_mask):
@@ -194,7 +366,8 @@ class MagicQuill(object):
 
     @classmethod
     def painter_execute(cls, image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, stroke_as_edge, fine_edge, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler):
-        print(image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler)
+        print(f"model: {model} vae: {vae} clip: {clip} base_model_version: {base_model_version} positive_prompt: {positive_prompt} negative_prompt: {negative_prompt} dtype: {dtype} grow_size: {grow_size} stroke_as_edge: {stroke_as_edge} fine_edge: {fine_edge} edge_strength: {edge_strength} color_strength: {color_strength} inpaint_strength: {inpaint_strength} seed: {seed} steps: {steps} cfg: {cfg} sampler_name: {sampler_name} scheduler: {scheduler}")
+        print(f"original_image: {original_image} add_color_image: {add_color_image} add_edge_image: {add_edge_image} remove_edge_image: {remove_edge_image}")
         add_color_image, original_image, total_mask, add_edge_mask, remove_edge_mask = cls.prepare_images_and_masks(image, original_image, add_color_image, add_edge_image, remove_edge_image)
 
         if torch.sum(remove_edge_mask).item() > 0 and torch.sum(add_edge_mask).item() == 0:
@@ -208,9 +381,18 @@ class MagicQuill(object):
         print("positive prompt: ", positive_prompt)
         latent_samples, final_image, lineart_output, color_output = cls.scribbleColorEditModel.process(model, vae, clip, original_image, add_color_image, base_model_version, positive_prompt, negative_prompt, dtype, total_mask, add_edge_mask, remove_edge_mask, grow_size, stroke_as_edge, fine_edge, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler)
 
+        # Ensure all data is serializable before sending via JSON
+        # Convert tensor to base64 string
         final_image_base64 = tensor_to_base64(final_image)
+        
+        # Get the string representation of the image path if it's not a tensor
+        image_name = image
+        if isinstance(image, torch.Tensor):
+            image_name = "generated_image"
+            
+        # Send the serializable data
         PromptServer.instance.send_sync(
-            "magic_quill/final_image", {"image": final_image_base64, "image_name": image}
+            "magic_quill/final_image", {"image": final_image_base64, "image_name": image_name}
         )
         
         return (latent_samples, final_image, lineart_output, color_output)
