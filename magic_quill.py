@@ -121,48 +121,69 @@ async def run_magic_quill(request):
         prompt_id = str(hashlib.sha256(str(time.time()).encode()).hexdigest()[:8])
         PromptServer.instance.last_prompt_id = prompt_id
         PromptServer.instance.last_node_id = "magic_quill"
-
-        # Load and preprocess the main image
+        
+        # Get the input directory path
+        input_dir = folder_paths.get_input_directory()
+        
+        # Generate unique filenames for this request
+        timestamp = int(time.time())
+        if post.get("dynamic_filenames", False):
+            main_image_filename = f"api_image_{timestamp}.png"
+            original_image_filename = f"api_original_{timestamp}.png"
+            add_color_image_filename = f"api_add_color_{timestamp}.png"
+            add_edge_image_filename = f"api_add_edge_{timestamp}.png"
+            remove_edge_image_filename = f"api_remove_edge_{timestamp}.png"
+        else:
+            main_image_filename = f"clipspace-mask-MagicQuill_-1.png"
+            original_image_filename = f"original_MagicQuill_-1.png"
+            add_color_image_filename = f"add_color_MagicQuill_-1.png"
+            add_edge_image_filename = f"add_edge_MagicQuill_-1.png"
+            remove_edge_image_filename = f"remove_edge_MagicQuill_-1.png"   
+        
+        # Save main image
+        main_image_path = os.path.join(input_dir, main_image_filename)
         image = read_base64_image(base64_image)
-        image_array = np.array(image).astype(np.float32) / 255.0
-        image_tensor = torch.from_numpy(image_array)[None,].to(device="cpu").detach()
+        image.save(main_image_path)
+        print(f"Saved main image to {main_image_path}")
         
-        # Process additional base64 images if provided
-        original_image_tensor = None
-        add_color_image_tensor = None
-        add_edge_image_tensor = None
-        remove_edge_image_tensor = None
-        
-        # Process original_image if provided
+        # Save original image if provided, otherwise use main image
         base64_original = post.get("original_image")
         if base64_original:
+            original_image_path = os.path.join(input_dir, original_image_filename)
             original_image = read_base64_image(base64_original)
-            original_array = np.array(original_image).astype(np.float32) / 255.0
-            original_image_tensor = torch.from_numpy(original_array)[None,].to(device="cpu").detach()
+            original_image.save(original_image_path)
+            original_image_file = original_image_filename
         else:
-            # If no original image provided, use main image
-            original_image_tensor = image_tensor
+            original_image_file = main_image_filename
         
-        # Process add_color_image if provided
+        # Process and save optional images if provided
+        add_color_image_file = None
+        add_edge_image_file = None
+        remove_edge_image_file = None
+        
+        # Save add_color_image if provided
         base64_add_color = post.get("add_color_image")
         if base64_add_color:
+            add_color_image_path = os.path.join(input_dir, add_color_image_filename)
             add_color_image = read_base64_image(base64_add_color)
-            add_color_array = np.array(add_color_image).astype(np.float32) / 255.0
-            add_color_image_tensor = torch.from_numpy(add_color_array)[None,].to(device="cpu").detach()
-        
-        # Process add_edge_image if provided
+            add_color_image.save(add_color_image_path)
+            add_color_image_file = add_color_image_filename
+            
+        # Save add_edge_image if provided
         base64_add_edge = post.get("add_edge_image")
         if base64_add_edge:
+            add_edge_image_path = os.path.join(input_dir, add_edge_image_filename)
             add_edge_image = read_base64_image(base64_add_edge)
-            add_edge_array = np.array(add_edge_image).astype(np.float32) / 255.0
-            add_edge_image_tensor = torch.from_numpy(add_edge_array)[None,].to(device="cpu").detach()
-        
-        # Process remove_edge_image if provided
+            add_edge_image.save(add_edge_image_path)
+            add_edge_image_file = add_edge_image_filename
+            
+        # Save remove_edge_image if provided
         base64_remove_edge = post.get("remove_edge_image")
         if base64_remove_edge:
+            remove_edge_image_path = os.path.join(input_dir, remove_edge_image_filename)
             remove_edge_image = read_base64_image(base64_remove_edge)
-            remove_edge_array = np.array(remove_edge_image).astype(np.float32) / 255.0
-            remove_edge_image_tensor = torch.from_numpy(remove_edge_array)[None,].to(device="cpu").detach()
+            remove_edge_image.save(remove_edge_image_path)
+            remove_edge_image_file = remove_edge_image_filename
         
         # Get other parameters from the request
         checkpoint_name = post.get("checkpoint_name", "SD1.5/DreamShaper.safetensors")
@@ -192,13 +213,15 @@ async def run_magic_quill(request):
         sampler_name = post.get("sampler_name", "euler_ancestral")
         scheduler = post.get("scheduler", "exponential")
 
-        # Call painter_execute
+        print(f"Using files - Main: {main_image_filename}, Original: {original_image_file}, Add Color: {add_color_image_file}, Add Edge: {add_edge_image_file}, Remove Edge: {remove_edge_image_file}")
+
+        # Call painter_execute with file paths instead of tensors
         result = MagicQuill.painter_execute(
-            image=image_tensor,
-            original_image=original_image_tensor,
-            add_color_image=add_color_image_tensor,
-            add_edge_image=add_edge_image_tensor,
-            remove_edge_image=remove_edge_image_tensor,
+            image=main_image_filename,
+            original_image=original_image_file,
+            add_color_image=add_color_image_file,
+            add_edge_image=add_edge_image_file,
+            remove_edge_image=remove_edge_image_file,
             model=model,
             vae=vae,
             clip=clip,
@@ -226,6 +249,21 @@ async def run_magic_quill(request):
         PromptServer.instance.send_sync(
             "progress", {"value": 1, "max": 1, "prompt_id": prompt_id, "node": "magic_quill"}
         )
+        
+        # Clean up temporary files (optional)
+        try:
+            # if os.path.exists(main_image_path):
+            #     os.remove(main_image_path)
+            # if base64_original and os.path.exists(os.path.join(input_dir, original_image_filename)):
+            #     os.remove(os.path.join(input_dir, original_image_filename))
+            if base64_add_color and os.path.exists(os.path.join(input_dir, add_color_image_filename)):
+                os.remove(os.path.join(input_dir, add_color_image_filename))
+            if base64_add_edge and os.path.exists(os.path.join(input_dir, add_edge_image_filename)):
+                os.remove(os.path.join(input_dir, add_edge_image_filename))
+            if base64_remove_edge and os.path.exists(os.path.join(input_dir, remove_edge_image_filename)):
+                os.remove(os.path.join(input_dir, remove_edge_image_filename))
+        except Exception as e:
+            print(f"Warning: Error cleaning up temporary files: {str(e)}")
         
         return web.json_response({
             "status": "success",
@@ -301,44 +339,23 @@ class MagicQuill(object):
 
     @classmethod
     def prepare_images_and_masks(cls, image, original_image, add_color_image, add_edge_image, remove_edge_image):
-        # Handle tensor inputs (from API)
-        if isinstance(image, torch.Tensor):
-            image_tensor = image.detach().clone().to(device="cpu")
-            height, width = image_tensor.shape[1], image_tensor.shape[2]
-            
-            # Create empty masks for API requests
-            total_mask = torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
-            
-            if isinstance(original_image, torch.Tensor):
-                original_image_tensor = original_image.detach().clone().to(device="cpu")
-            else:
-                original_image_tensor = image_tensor
-                
-            if isinstance(add_color_image, torch.Tensor):
-                add_color_image_tensor = add_color_image.detach().clone().to(device="cpu")
-            else:
-                add_color_image_tensor = original_image_tensor
-                
-            add_edge_mask = torch.zeros_like(total_mask)
-            remove_edge_mask = torch.zeros_like(total_mask)
+        # Handle file path inputs
+        image_path = folder_paths.get_annotated_filepath(image)
+        image_tensor = load_and_preprocess_image(image_path)
+        height, width = image_tensor.shape[1], image_tensor.shape[2]
+        total_mask = create_alpha_mask(image_path)
+        
+        original_image_path = folder_paths.get_annotated_filepath(original_image)
+        original_image_tensor = load_and_preprocess_image(original_image_path)
+        
+        if add_color_image:
+            add_color_image_path = folder_paths.get_annotated_filepath(add_color_image)
+            add_color_image_tensor = load_and_preprocess_image(add_color_image_path)
         else:
-            # Handle file path inputs (from ComfyUI)
-            image_path = folder_paths.get_annotated_filepath(image)
-            image_tensor = load_and_preprocess_image(image_path)
-            height, width = image_tensor.shape[1], image_tensor.shape[2]
-            total_mask = create_alpha_mask(image_path)
-            
-            original_image_path = folder_paths.get_annotated_filepath(original_image)
-            original_image_tensor = load_and_preprocess_image(original_image_path)
-            
-            if add_color_image:
-                add_color_image_path = folder_paths.get_annotated_filepath(add_color_image)
-                add_color_image_tensor = load_and_preprocess_image(add_color_image_path)
-            else:
-                add_color_image_tensor = original_image_tensor
-            
-            add_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(add_edge_image)) if add_edge_image else torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
-            remove_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(remove_edge_image)) if remove_edge_image else torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
+            add_color_image_tensor = original_image_tensor
+        
+        add_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(add_edge_image)) if add_edge_image else torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
+        remove_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(remove_edge_image)) if remove_edge_image else torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
         
         # Ensure all tensors have correct dimensions
         if add_edge_mask.shape[1] != height or add_edge_mask.shape[2] != width:
