@@ -47,6 +47,8 @@ class LLaVAModel:
             else:
                 qs = DEFAULT_IMAGE_TOKEN + "\n" + qs
 
+        print(f"Question: {qs}")  # Debug print
+
         images_tensor = []
         image_sizes = []
         to_pil = transforms.ToPILImage()
@@ -58,16 +60,23 @@ class LLaVAModel:
             image = self.image_processor.preprocess(image, return_tensors='pt')['pixel_values'][0]
             images_tensor.append(image.half())
 
+        print(f"Image tensor shape: {images_tensor[0].shape}")  # Debug print
+        print(f"Image sizes: {image_sizes}")  # Debug print
+
         conv = conv_templates["llava_v1"].copy()
         conv.append_message(conv.roles[0], qs)
         conv.append_message(conv.roles[1], None)
         prompt = conv.get_prompt()
+        
+        print(f"Prompt: {prompt}")  # Debug print
         
         input_ids = (
             tokenizer_image_token(prompt, self.tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt")
             .unsqueeze(0)
             .cuda()
         )
+
+        print(f"Input IDs shape: {input_ids.shape}")  # Debug print
 
         with torch.inference_mode():
             output_ids = self.model.generate(
@@ -77,10 +86,25 @@ class LLaVAModel:
                 temperature=0.2,
                 do_sample=True,
                 use_cache=True,
+                max_new_tokens=512,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
+                bos_token_id=self.tokenizer.bos_token_id,
+                num_return_sequences=1,
+                return_dict_in_generate=True,
             )
+            
+        if isinstance(output_ids, dict):
+            output_ids = output_ids.sequences
+            
+        print(f"Output IDs shape: {output_ids.shape}")  # Debug print
         outputs = self.tokenizer.decode(output_ids[0]).strip()
-        outputs = outputs.split('>')[1].split('<')[0]
-        # print(outputs)
+        print(f"Raw output: {outputs}")  # Debug print
+        
+        # Handle both simple responses and the original format
+        outputs = outputs.replace('</s>', '').strip()
+
+        print(f"Processed output: {outputs}")  # Debug print
         return outputs
 
     def process(self, image, colored_image, add_mask):
