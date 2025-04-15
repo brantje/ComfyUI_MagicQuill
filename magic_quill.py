@@ -251,19 +251,20 @@ async def run_magic_quill(request):
         )
         
         # Clean up temporary files (optional)
-        try:
-            # if os.path.exists(main_image_path):
-            #     os.remove(main_image_path)
-            # if base64_original and os.path.exists(os.path.join(input_dir, original_image_filename)):
-            #     os.remove(os.path.join(input_dir, original_image_filename))
-            if base64_add_color and os.path.exists(os.path.join(input_dir, add_color_image_filename)):
-                os.remove(os.path.join(input_dir, add_color_image_filename))
-            if base64_add_edge and os.path.exists(os.path.join(input_dir, add_edge_image_filename)):
-                os.remove(os.path.join(input_dir, add_edge_image_filename))
-            if base64_remove_edge and os.path.exists(os.path.join(input_dir, remove_edge_image_filename)):
-                os.remove(os.path.join(input_dir, remove_edge_image_filename))
-        except Exception as e:
-            print(f"Warning: Error cleaning up temporary files: {str(e)}")
+        if post.get("cleanup", False):
+            try:
+                if os.path.exists(main_image_path):
+                    os.remove(main_image_path)
+                if base64_original and os.path.exists(os.path.join(input_dir, original_image_filename)):
+                    os.remove(os.path.join(input_dir, original_image_filename))
+                if base64_add_color and os.path.exists(os.path.join(input_dir, add_color_image_filename)):
+                    os.remove(os.path.join(input_dir, add_color_image_filename))
+                if base64_add_edge and os.path.exists(os.path.join(input_dir, add_edge_image_filename)):
+                    os.remove(os.path.join(input_dir, add_edge_image_filename))
+                if base64_remove_edge and os.path.exists(os.path.join(input_dir, remove_edge_image_filename)):
+                    os.remove(os.path.join(input_dir, remove_edge_image_filename))
+            except Exception as e:
+                print(f"Warning: Error cleaning up temporary files: {str(e)}")
         
         return web.json_response({
             "status": "success",
