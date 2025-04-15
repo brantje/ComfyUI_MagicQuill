@@ -30,7 +30,7 @@ class LLaVAModel:
             model_path=model_path,
             model_base=None,
             model_name=get_model_name_from_path(model_path),
-            load_4bit=True
+            
         )
 
     def generate_description(self, images, question):
