@@ -40,6 +40,10 @@ class ScribbleColorEditModel():
             edge_controlnet_name = "control_v11p_sd15_scribble.safetensors"
             color_controlnet_name = "color_finetune.safetensors"
             brushnet_name = os.path.join("brushnet", "random_mask_brushnet_ckpt", "diffusion_pytorch_model.safetensors")
+        elif base_model_version == "FLUX":
+            edge_controlnet_name = os.path.join("FLUX1", "FLUX.1-dev-Controlnet-Union.safetensors")
+            color_controlnet_name = None # TODO: add color controlnet for FLUX
+            brushnet_name = None # TODO: add brushnet for FLUX
         else:
             raise ValueError("Invalid base_model_version, not supported yet!!!: {}".format(base_model_version))
         self.edge_controlnet = self.controlnet_loader.load_controlnet(edge_controlnet_name)[0]

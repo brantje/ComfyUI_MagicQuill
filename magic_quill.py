@@ -309,7 +309,7 @@ class MagicQuill(object):
                 "clip": ("CLIP",),
                 "vae": ("VAE",),
                 
-                "base_model_version": (['SD1.5'], {"default": "SD1.5"}),
+                "base_model_version": (['SD1.5', 'FLUX'], {"default": "SD1.5"}),
                 "positive_prompt": ("STRING", {"default": ""}),
                 "negative_prompt": ("STRING", {"default": ""}),
                 "dtype": (['float16', 'bfloat16', 'float32', 'float64'], {"default": "float16"}),
