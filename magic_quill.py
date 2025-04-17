@@ -119,12 +119,11 @@ class MagicQuill(object):
 
         return {
             "required": {
-                "image": (imgs,),
+                "image": (imgs, ),
                 "original_image": (imgs,),
                 "add_color_image": (imgs,),
                 "add_edge_image": (imgs,),
                 "remove_edge_image": (imgs,),
-
                 "model": ("MODEL",),
                 "clip": ("CLIP",),
                 "vae": ("VAE",),
@@ -147,6 +146,9 @@ class MagicQuill(object):
                 "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"default": "euler_ancestral"}),
                 "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"default": "exponential"}),
             },
+            "optional": {
+             
+            }
         }
 
     RETURN_TYPES = ("LATENT", "IMAGE", "IMAGE", "IMAGE")
@@ -225,6 +227,7 @@ class MagicQuill(object):
     @classmethod
     def VALIDATE_INPUTS(self, image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler):
         if not folder_paths.exists_annotated_filepath(image):
+            print(image)
             return "Invalid image file: {}".format(image)
 
         return True
