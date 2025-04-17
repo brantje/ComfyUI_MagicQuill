@@ -2,6 +2,8 @@ import os
 import torch.nn.functional as F
 import torch
 import sys
+import torch.utils._pytree as pytree
+import numpy as np
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
@@ -45,6 +47,32 @@ class ScribbleColorEditModel():
         self.brushnet_loader.inpaint_files = get_files_with_extension('inpaint')
         print("self.brushnet_loader.inpaint_files: ", get_files_with_extension('inpaint'))
         self.brushnet = self.brushnet_loader.brushnet_loading(brushnet_name, dtype)[0]
+
+    def safe_vae_decode(self, vae, latent_samples):
+        """Safe VAE decoding that handles inference tensors correctly."""
+        # First, ensure the latent samples are on CPU and detached
+        samples = latent_samples["samples"].to(device="cpu").detach().clone()
+        
+        # Convert to standard float format
+        samples = samples.float()
+        
+        # Disable gradient tracking for this operation
+        with torch.no_grad():
+            # Create a fresh dictionary with the cloned tensor
+            latent_dict = {"samples": samples}
+            try:
+                # Decode using the VAE
+                return self.vae_decoder.decode(vae, latent_dict)
+            except RuntimeError as e:
+                # If we still encounter an error, try a deeper copy approach
+                print(f"First VAE decode attempt failed: {str(e)}")
+                
+                # Create completely fresh tensors by serializing and deserializing
+                serialized = pytree.tree_map(lambda x: x.detach().cpu().numpy() if isinstance(x, torch.Tensor) else x, latent_dict)
+                deserialized = pytree.tree_map(lambda x: torch.tensor(x) if isinstance(x, np.ndarray) else x, serialized)
+                
+                # Try decoding again with the completely new tensors
+                return self.vae_decoder.decode(vae, deserialized)
 
     def process(self, model, vae, clip, image, colored_image, base_model_version, positive_prompt, negative_prompt, dtype, mask, add_mask, remove_mask, grow_size, stroke_as_edge, fine_edge, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler):
         print("mask.shape", mask.shape)
@@ -115,8 +143,47 @@ class ScribbleColorEditModel():
             latent_image=latent,
         )[0]
 
-        final_image = self.vae_decoder.decode(vae, latent_samples)[0]
-        final_image = self.blender.blend_inpaint(final_image, image, mask, kernel=10, sigma=10.0)[0]
-
+        # Use the safe VAE decode method instead of direct decoding
+        final_image = self.safe_vae_decode(vae, latent_samples)[0]
+        
+        # Ensure image dimensions match before blending (handle RGB vs RGBA)
+        if final_image.shape[-1] != image.shape[-1]:
+            print(f"Dimension mismatch: final_image shape: {final_image.shape}, image shape: {image.shape}")
+            
+            # Handle different dimensions properly
+            # First, make sure we understand the tensor shapes
+            print(f"final_image.dim() = {final_image.dim()}, image.dim() = {image.dim()}")
+            
+            # Convert both to 3D (H,W,C) format if they're not already
+            if final_image.dim() == 4:
+                final_image = final_image.squeeze(0)  # Remove batch dimension if present
+            if image.dim() == 4:
+                image = image.squeeze(0)  # Remove batch dimension if present
+                
+            # Now handle channel differences
+            if final_image.shape[-1] == 3 and image.shape[-1] == 4:
+                # Add an alpha channel (fully opaque) to final_image
+                alpha_channel = torch.ones((final_image.shape[0], final_image.shape[1], 1), 
+                                          device=final_image.device, dtype=final_image.dtype)
+                final_image = torch.cat([final_image, alpha_channel], dim=-1)
+            elif final_image.shape[-1] == 4 and image.shape[-1] == 3:
+                # Use only RGB channels from final_image or add alpha to image
+                final_image = final_image[..., :3]
+            else:
+                # Just use the first 3 channels for both
+                final_image = final_image[..., :3]
+                if image.shape[-1] > 3:
+                    image = image[..., :3]
+        
+        # Print shape information before blending
+        print(f"Before blending - final_image shape: {final_image.shape}, image shape: {image.shape}, mask shape: {mask.shape}")
+        
+        # Make sure mask has the right dimensions for blending
+        if mask.dim() == 3 and mask.shape[0] == 1:  # If mask is [1, H, W]
+            mask_for_blend = mask.squeeze(0)        # Convert to [H, W]
+        else:
+            mask_for_blend = mask
+            
+        final_image = self.blender.blend_inpaint(final_image, image, mask_for_blend, kernel=10, sigma=10.0)[0]
 
         return (latent_samples, final_image, lineart_output, color_output)
