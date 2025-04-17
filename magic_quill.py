@@ -1,6 +1,7 @@
 import hashlib
 import os
 import json
+import random
 from server import PromptServer
 from PIL import Image, ImageOps
 import torch
@@ -194,6 +195,8 @@ async def run_magic_quill(request):
         clip = out[1]
         vae = out[2]
         
+        random_seed = random.randint(0, 0xffffffffffffffff)
+        
         if not model or not vae or not clip:
             return web.json_response({"error": "Missing required model objects"}, status=400)
             
@@ -207,7 +210,8 @@ async def run_magic_quill(request):
         edge_strength = post.get("edge_strength", 0.5)
         color_strength = post.get("color_strength", 0.5)
         inpaint_strength = post.get("inpaint_strength", 1.0)
-        seed = post.get("seed", 0)
+        
+        seed = post.get("seed", random_seed) #Random seed
         steps = post.get("steps", 20)
         cfg = post.get("cfg", 4.0)
         sampler_name = post.get("sampler_name", "euler_ancestral")
