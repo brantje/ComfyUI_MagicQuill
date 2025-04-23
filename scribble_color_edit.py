@@ -16,7 +16,11 @@ from comfyui_controlnet_aux.node_wrappers.lineart import LineArt_Preprocessor
 from comfyui_controlnet_aux.node_wrappers.pidinet import PIDINET_Preprocessor
 from comfyui_controlnet_aux.node_wrappers.color import Color_Preprocessor
 
-from nodes import ControlNetLoader, ControlNetApplyAdvanced, CLIPTextEncode, KSampler, VAEDecode
+from comfy_extras.nodes_controlnet import SetUnionControlNetType
+from comfy_extras.nodes_differential_diffusion import DifferentialDiffusion
+from comfy_extras.nodes_flux import FluxGuidance
+
+from nodes import ControlNetLoader, ControlNetApplyAdvanced, CLIPTextEncode, KSampler, VAEDecode, InpaintModelConditioning
 from nodes_mask import GrowMask
 
 class ScribbleColorEditModel():
@@ -36,21 +40,36 @@ class ScribbleColorEditModel():
         # self.load_models('SD1.5', 'float16')
 
     def load_models(self, base_model_version, dtype):
+        print(f"Loading models for base_model_version: {base_model_version}")
         if base_model_version == "SD1.5":
             edge_controlnet_name = "control_v11p_sd15_scribble.safetensors"
             color_controlnet_name = "color_finetune.safetensors"
             brushnet_name = os.path.join("brushnet", "random_mask_brushnet_ckpt", "diffusion_pytorch_model.safetensors")
+            print(f"Loading models for base_model_version: {base_model_version}")
+        elif base_model_version == "SDXL":
+            edge_controlnet_name = os.path.join("SDXL", "sd_xl_base_1.0_controlnet.safetensors")
+            color_controlnet_name = None # TODO: add color controlnet for SDXL
+            brushnet_name = None # TODO: add brushnet for SDXL
+            print(f"Loading models for SDXL base_model_version: {base_model_version}")
         elif base_model_version == "FLUX":
-            edge_controlnet_name = os.path.join("FLUX1", "FLUX.1-dev-Controlnet-Union.safetensors")
+            edge_controlnet_name = os.path.join("FLUX1", "Shakker-Labs-ControlNet-Union-Pro","diffusion_pytorch_model.safetensors")
             color_controlnet_name = None # TODO: add color controlnet for FLUX
             brushnet_name = None # TODO: add brushnet for FLUX
+            print(f"Loading models for Flux base_model_version: {base_model_version}")
+
         else:
             raise ValueError("Invalid base_model_version, not supported yet!!!: {}".format(base_model_version))
         self.edge_controlnet = self.controlnet_loader.load_controlnet(edge_controlnet_name)[0]
-        self.color_controlnet = self.controlnet_loader.load_controlnet(color_controlnet_name)[0]
-        self.brushnet_loader.inpaint_files = get_files_with_extension('inpaint')
-        print("self.brushnet_loader.inpaint_files: ", get_files_with_extension('inpaint'))
-        self.brushnet = self.brushnet_loader.brushnet_loading(brushnet_name, dtype)[0]
+        if color_controlnet_name:
+            self.color_controlnet = self.controlnet_loader.load_controlnet(color_controlnet_name)[0]
+        else:
+            self.color_controlnet = None
+        if brushnet_name:
+            self.brushnet_loader.inpaint_files = get_files_with_extension('inpaint')
+            print("self.brushnet_loader.inpaint_files: ", get_files_with_extension('inpaint'))
+            self.brushnet = self.brushnet_loader.brushnet_loading(brushnet_name, dtype)[0]
+        else:
+            self.brushnet = None
 
     def safe_vae_decode(self, vae, latent_samples):
         """Safe VAE decoding that handles inference tensors correctly."""
@@ -96,6 +115,8 @@ class ScribbleColorEditModel():
                 image_copy[bool_add_mask] = 1.0
 
         if not torch.equal(image, colored_image):
+            if base_model_version == "FLUX":
+                raise ValueError('Not implemented.')            
             print("Apply color controlnet")
             color_output = self.color_processor.execute(colored_image, resolution=2048)[0]
             lineart_output = self.lineart_processor.execute(image, resolution=512, coarse=False)[0]
@@ -120,20 +141,39 @@ class ScribbleColorEditModel():
                 lineart_output[bool_add_mask_resized] = 1.0
             else:
                 lineart_output[bool_remove_mask_resized & ~bool_add_mask_resized] = 0.0
-            positive, negative = self.controlnet_apply.apply_controlnet(positive, negative, self.edge_controlnet, lineart_output, edge_strength, 0.0, 1.0)
+           
+            if base_model_version == "FLUX":
 
-        model, positive, negative, latent = self.brushnet_node.model_update(
-            model=model,
-            vae=vae,
-            image=image,
-            mask=mask,
-            brushnet=self.brushnet,
-            positive=positive,
-            negative=negative,
-            scale=inpaint_strength,
-            start_at=0,
-            end_at=10000
-        )
+                self.edge_controlnet = (SetUnionControlNetType().set_controlnet_type(self.edge_controlnet, 2))[0] # set union type to hed/pidi/scribble/ted
+                model = (DifferentialDiffusion().apply(model))[0] # apply Differential Diffusion
+                positive = (FluxGuidance().append(positive, 30))[0] # apply flux guidence
+            positive, negative = self.controlnet_apply.apply_controlnet(positive, negative, self.edge_controlnet, lineart_output, edge_strength, 0.0, 1.0, vae)
+            
+            if base_model_version == "FLUX":
+                positive, negative, latent = InpaintModelConditioning().encode(positive, negative, image, vae, mask, False) # apply inpaint
+           
+            # if base_model_version == "SD1.5":
+            #     positive, negative = self.controlnet_apply.apply_controlnet(positive, negative, self.edge_controlnet, lineart_output, edge_strength, 0.0, 1.0)
+            # else:
+            #     positive, negative = self.controlnet_apply.apply_controlnet(positive, negative, self.edge_controlnet, lineart_output, edge_strength, vae, 0.0, 1.0)
+        
+        
+            if base_model_version == "FLUX":
+                positive, negative, latent = InpaintModelConditioning().encode(positive, negative, image, vae, mask, False) # apply inpaint
+            else:
+                model, positive, negative, latent = self.brushnet_node.model_update(
+                    model=model,
+                    vae=vae,
+                    image=image,
+                    mask=mask,
+                    brushnet=self.brushnet,
+                    positive=positive,
+                    negative=negative,
+                    scale=inpaint_strength,
+                    start_at=0,
+                    end_at=10000
+                )
+
 
         latent_samples = self.ksampler.sample(
             model=model, 

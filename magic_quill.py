@@ -284,6 +284,14 @@ async def run_magic_quill(request):
         sampler_name = post.get("sampler_name", "euler_ancestral")
         scheduler = post.get("scheduler", "exponential")
 
+        if "FLUX" in checkpoint_name:
+            base_model_version = "FLUX"
+        elif "SDXL" in checkpoint_name:
+            base_model_version = "SDXL"
+        else:
+            base_model_version = "SD1.5"
+
+        print(f"Base model version: {base_model_version} checkpoint_name: {checkpoint_name}")
         print(f"Using files - Main: {main_image_filename}, Original: {original_image_file}, Add Color: {add_color_image_file}, Add Edge: {add_edge_image_file}, Remove Edge: {remove_edge_image_file}")
 
         # Call painter_execute with file paths instead of tensors
