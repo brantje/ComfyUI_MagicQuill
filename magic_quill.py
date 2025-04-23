@@ -90,25 +90,92 @@ async def process_background_img(request):
 @PromptServer.instance.routes.post("/magic_quill/guess_prompt")
 async def guess_prompt_handler(request):
     json_data = await request.json()
-    add_color_image = json_data.get("add_color_image", None)
-    original_image = json_data.get("original_image", None)
-    add_edge_image = json_data.get("add_edge_image", None)
+    add_color_image_data = json_data.get("add_color_image", None)
+    original_image_data = json_data.get("original_image", None)
+    add_edge_image_data = json_data.get("add_edge_image", None)
 
-    original_image_path = folder_paths.get_annotated_filepath(original_image)
-    original_image_tensor = load_and_preprocess_image(original_image_path)
-    
-    if add_color_image:
-        add_color_image_path = folder_paths.get_annotated_filepath(add_color_image)
-        add_color_image_tensor = load_and_preprocess_image(add_color_image_path)
-    else:
-        add_color_image_tensor = original_image_tensor
-    
-    width, height = original_image_tensor.shape[1], original_image_tensor.shape[2]
-    add_edge_mask = create_alpha_mask(folder_paths.get_annotated_filepath(add_edge_image)) if add_edge_image else torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
+    if not original_image_data:
+        return web.json_response({"error": "Original image is required."}, status=400)
 
-    res = MagicQuill.guess_prompt(original_image_tensor, add_color_image_tensor, add_edge_mask)
+    temp_files_to_clean = []
+    input_dir = folder_paths.get_input_directory()
 
-    return web.json_response({"prompt": res, "error": False})
+    def is_base64(s):
+        return isinstance(s, str) and s.startswith("data:image/")
+
+    def handle_image_input(image_data, filename_base):
+        if is_base64(image_data):
+            try:
+                image = read_base64_image(image_data)
+                timestamp = int(time.time())
+                # Use a short hash to minimize collision chance but keep filename reasonable
+                hash_part = hashlib.sha1(str(timestamp).encode() + image_data.encode()).hexdigest()[:8]
+                filename = f"{filename_base}_{timestamp}_{hash_part}.png"
+                filepath = os.path.join(input_dir, filename)
+                image.save(filepath)
+                print(f"Saved temporary image to {filepath}")
+                temp_files_to_clean.append(filepath)
+                return filepath
+            except Exception as e:
+                print(f"Error processing base64 image for {filename_base}: {e}")
+                # Raise or return error? For now, let it raise to signal failure.
+                raise ValueError(f"Invalid base64 data for {filename_base}") from e
+        elif isinstance(image_data, str): # Assume filename
+            return folder_paths.get_annotated_filepath(image_data)
+        else: # Handle None or other invalid types
+            return None
+
+    try:
+        original_image_path = handle_image_input(original_image_data, "guess_original")
+        if not original_image_path or not os.path.exists(original_image_path):
+             return web.json_response({"error": f"Original image not found or invalid: {original_image_data}"}, status=400)
+             
+        original_image_tensor = load_and_preprocess_image(original_image_path)
+        
+        add_color_image_path = None
+        if add_color_image_data:
+            add_color_image_path = handle_image_input(add_color_image_data, "guess_add_color")
+            if not add_color_image_path or not os.path.exists(add_color_image_path):
+                print(f"Warning: Add color image specified but not found or invalid: {add_color_image_data}. Using original image.")
+                add_color_image_path = None # Fallback
+
+        if add_color_image_path:
+            add_color_image_tensor = load_and_preprocess_image(add_color_image_path)
+        else:
+            add_color_image_tensor = original_image_tensor # Fallback to original
+        
+        add_edge_image_path = None
+        if add_edge_image_data:
+            add_edge_image_path = handle_image_input(add_edge_image_data, "guess_add_edge")
+            if not add_edge_image_path or not os.path.exists(add_edge_image_path):
+                 print(f"Warning: Add edge image specified but not found or invalid: {add_edge_image_data}. Ignoring add edge.")
+                 add_edge_image_path = None # Ignore if invalid
+
+        width, height = original_image_tensor.shape[2], original_image_tensor.shape[1] # Corrected order W, H
+        add_edge_mask = create_alpha_mask(add_edge_image_path) if add_edge_image_path else torch.zeros((1, height, width), dtype=torch.float32, device="cpu")
+
+        # Ensure mask dimensions match original image
+        if add_edge_mask.shape[1] != height or add_edge_mask.shape[2] != width:
+             add_edge_mask = F.interpolate(add_edge_mask.unsqueeze(0), size=(height, width), mode='nearest').squeeze(0)
+
+        res = MagicQuill.guess_prompt(original_image_tensor, add_color_image_tensor, add_edge_mask)
+
+        return web.json_response({"prompt": res, "error": False})
+
+    except Exception as e:
+        import traceback
+        traceback_str = traceback.format_exc()
+        print(f"Error in guess_prompt_handler: {str(e)}\nTraceback: {traceback_str}")
+        return web.json_response({"error": str(e), "traceback": traceback_str}, status=500)
+    finally:
+        # Cleanup temporary files
+        for filepath in temp_files_to_clean:
+            try:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                    print(f"Cleaned up temporary file: {filepath}")
+            except Exception as e:
+                print(f"Warning: Error cleaning up temporary file {filepath}: {str(e)}")
 
 @PromptServer.instance.routes.post("/magic_quill/run")
 async def run_magic_quill(request):
