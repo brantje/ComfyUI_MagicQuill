@@ -52,7 +52,7 @@ class ScribbleColorEditModel():
             brushnet_name = None # TODO: add brushnet for SDXL
             print(f"Loading models for SDXL base_model_version: {base_model_version}")
         elif base_model_version == "FLUX":
-            edge_controlnet_name = os.path.join("FLUX1", "Shakker-Labs-ControlNet-Union-Pro","diffusion_pytorch_model.safetensors")
+            edge_controlnet_name = os.path.join("FLUX.1", "Shakker-Labs-ControlNet-Union-Pro","diffusion_pytorch_model.safetensors")
             color_controlnet_name = None # TODO: add color controlnet for FLUX
             brushnet_name = None # TODO: add brushnet for FLUX
             print(f"Loading models for Flux base_model_version: {base_model_version}")
