@@ -284,6 +284,14 @@ async def run_magic_quill(request):
         sampler_name = post.get("sampler_name", "euler_ancestral")
         scheduler = post.get("scheduler", "exponential")
 
+
+        if "SDXL" in checkpoint_name:
+            base_model_version = "SDXL"
+        elif "SD1.5" in checkpoint_name:
+            base_model_version = "SD1.5"
+        else:
+            raise ValueError(f"Could not determine base model version from checkpoint name: {checkpoint_name} use base_model_version parameter")
+
         print(f"Using files - Main: {main_image_filename}, Original: {original_image_file}, Add Color: {add_color_image_file}, Add Edge: {add_edge_image_file}, Remove Edge: {remove_edge_image_file}")
 
         # Call painter_execute with file paths instead of tensors
@@ -380,7 +388,7 @@ class MagicQuill(object):
                 "clip": ("CLIP",),
                 "vae": ("VAE",),
                 
-                "base_model_version": (['SD1.5'], {"default": "SD1.5"}),
+                "base_model_version": (['SD1.5', 'SDXL'], {"default": "SD1.5"}),
                 "positive_prompt": ("STRING", {"default": ""}),
                 "negative_prompt": ("STRING", {"default": ""}),
                 "dtype": (['float16', 'bfloat16', 'float32', 'float64'], {"default": "float16"}),

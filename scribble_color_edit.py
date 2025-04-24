@@ -40,8 +40,14 @@ class ScribbleColorEditModel():
             edge_controlnet_name = "control_v11p_sd15_scribble.safetensors"
             color_controlnet_name = "color_finetune.safetensors"
             brushnet_name = os.path.join("brushnet", "random_mask_brushnet_ckpt", "diffusion_pytorch_model.safetensors")
+        elif base_model_version == "SDXL":
+            edge_controlnet_name = "SDXL/sdxl-controlnet-scribble-1.0.safetensors"
+            color_controlnet_name = "SDXL/bria_23_controlnet_colorgrid.safetensors"
+            brushnet_name = os.path.join("SDXL", "random_mask_brushnet_ckpt_sdxl_v0.safetensors")
         else:
             raise ValueError("Invalid base_model_version, not supported yet!!!: {}".format(base_model_version))
+        print(f"Loading edge controlnet: {edge_controlnet_name} color controlnet: {color_controlnet_name} brushnet: {brushnet_name}")
+        
         self.edge_controlnet = self.controlnet_loader.load_controlnet(edge_controlnet_name)[0]
         self.color_controlnet = self.controlnet_loader.load_controlnet(color_controlnet_name)[0]
         self.brushnet_loader.inpaint_files = get_files_with_extension('inpaint')
