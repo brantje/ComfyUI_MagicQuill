@@ -1,35 +1,77 @@
+[tool.poetry]
+name = "ComfyUI-MagicQuill"
+version = "1.0.0"
+description = "Fixed version of the original MagicQuill node."
+authors = ["brantje <brantje@gmail.com>"]
+license = { text = "MIT License" }
+readme = "README.md"
+
+[tool.poetry.dependencies]
+
+pynvml = "^11.4.0"
+
+
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [project]
-name = "llava"
-version = "1.2.2.post1"
-description = "Towards GPT-4 like large language and visual assistant."
-readme = "README.md"
-requires-python = ">=3.8"
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: Apache Software License",
-]
-dependencies = [
-    "transformers==4.37.2", "tokenizers==0.15.1", "sentencepiece==0.2.0", "shortuuid",
-    "accelerate==0.33.0", "peft", "bitsandbytes",
-    "pydantic", "markdown2[all]", "numpy", "scikit-learn==1.2.2",
-    "gradio==5.4.0", "gradio_client==1.4.2", "requests", "httpx==0.24.1", "uvicorn", "fastapi",
-    "einops==0.6.1", "einops-exts==0.0.4", "timm==0.6.13",
-]
-
-[project.optional-dependencies]
-train = ["deepspeed==0.12.6", "ninja", "wandb"]
-build = ["build", "twine"]
+name = "comfyui_magicquill" # Unique identifier for your node. Immutable after creation.
+description = "Fixed version of the original MagicQuill node."
+version = "1.0.0" # Custom Node version. Must be semantically versioned.
+dependencies  = [
+    'opencv-python',
+    'diffusers',
+    'torchsde',
+    'protobuf',
+    'transformers',
+    'tokenizers',
+    'sentencepiece',
+    'shortuuid',
+    'accelerate',
+    'peft',
+    'bitsandbytes',
+    'pydantic',
+    'markdown2',
+    'scikit-learn',
+    'requests',
+    'httpx',
+    'uvicorn',
+    'fastapi',
+    'einops',
+    'einops-exts',
+    'timm',
+    'webcolors',
+    'torch',
+    'importlib_metadata',
+    'huggingface_hub',
+    'scipy',
+    'opencv-python',
+    'filelock',
+    'numpy',
+    'Pillow',
+    'einops',
+    'torchvision',
+    'pyyaml',
+    'scikit-image',
+    'python-dateutil',
+    'mediapipe',
+    'svglib',
+    'fvcore',
+    'yapf',
+    'omegaconf',
+    'ftfy',
+    'addict',
+    'yacs',
+    'trimesh[easy]',
+    'albumentations',
+    'scikit-learn',
+    'matplotlib'
+] # Filled in from requirements.txt
 
 [project.urls]
-"Homepage" = "https://llava-vl.github.io"
-"Bug Tracker" = "https://github.com/haotian-liu/LLaVA/issues"
+Repository = "https://github.com/brantje/ComfyUI_MagicQuill"
 
-[tool.setuptools.packages.find]
-exclude = ["assets*", "benchmark*", "docs", "dist*", "playground*", "scripts*", "tests*"]
-
-[tool.wheel]
-exclude = ["assets*", "benchmark*", "docs", "dist*", "playground*", "scripts*", "tests*"]
+[tool.comfy]
+PublisherId = "brantje"
+DisplayName = "ComfyUI MagicQuill (fixed)"
