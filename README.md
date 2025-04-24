@@ -4,6 +4,15 @@
 <a href="https://huggingface.co/spaces/AI4Editing/MagicQuill"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)"></a>
 <a href="https://creativecommons.org/licenses/by-sa/4.0/"><img src="https://img.shields.io/badge/License-CC%20BY--SA%204.0-lightgrey.svg"></a>
 
+
+# Fixed
+- [x] SD1.5
+
+Todo
+- [ ] SDXL
+- [ ] FLUX 
+
+
 https://github.com/user-attachments/assets/8ee9663a-fef2-484a-a0b7-8427ab590424
 
 There is an HD video on [Youtube](https://www.youtube.com/watch?v=5DiKfONMnE4).
