@@ -2,7 +2,7 @@ opencv-python
 diffusers
 torchsde==0.2.6
 protobuf==4.25.4
-transformers==4.37.2 
+transformers==4.38.0 
 tokenizers==0.15.1 
 sentencepiece==0.2.0
 shortuuid
