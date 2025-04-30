@@ -13,6 +13,10 @@ Todo
 - [ ] FLUX 
 
 
+Note:
+[Brushnet](https://github.com/nullquant/ComfyUI-BrushNet) and [ComfyUI ControlNet Aux](https://github.com/Fannovel16/comfyui_controlnet_aux) are required.
+
+
 https://github.com/user-attachments/assets/8ee9663a-fef2-484a-a0b7-8427ab590424
 
 There is an HD video on [Youtube](https://www.youtube.com/watch?v=5DiKfONMnE4).
