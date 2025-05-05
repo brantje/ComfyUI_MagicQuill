@@ -469,6 +469,8 @@ class MagicQuill(object):
         print(f"original_image: {original_image} add_color_image: {add_color_image} add_edge_image: {add_edge_image} remove_edge_image: {remove_edge_image}")
         print(f"optional_image: {optional_image} optional_image_mask: {optional_image_mask} optional_original_image: {optional_original_image} optional_original_image_mask: {optional_original_image_mask} optional_add_color_image: {optional_add_color_image} optional_add_color_image_mask: {optional_add_color_image_mask} optional_add_edge_mask: {optional_add_edge_mask} optional_add_edge_mask_mask: {optional_add_edge_mask_mask} optional_remove_edge_mask: {optional_remove_edge_mask} optional_remove_edge_mask_mask: {optional_remove_edge_mask_mask}")
         # check if optional_original_image is tensor
+        if isinstance(optional_image, torch.Tensor):
+            image = optional_image
         if isinstance(optional_original_image, torch.Tensor):
             original_image = optional_original_image
         if isinstance(optional_add_color_image, torch.Tensor):
@@ -485,7 +487,7 @@ class MagicQuill(object):
                 optional_image_mask = F.interpolate(optional_image_mask.unsqueeze(0), size=(optional_image.shape[1], optional_image.shape[2]), mode='nearest').squeeze(0)
             total_mask = optional_image_mask
           
-        if isinstance(image, str) and isinstance(original_image, str) and isinstance(add_color_image, str) and isinstance(add_edge_image, str) and isinstance(remove_edge_image, str):
+        if not isinstance(image, torch.Tensor) and not isinstance(original_image, torch.Tensor) and not isinstance(add_color_image, torch.Tensor) and not isinstance(add_edge_image, torch.Tensor) and not isinstance(remove_edge_image, torch.Tensor):
             add_color_image, original_image, total_mask, add_edge_mask, remove_edge_mask = cls.prepare_images_and_masks(image, original_image, add_color_image, add_edge_image, remove_edge_image)
 
         if torch.sum(remove_edge_mask).item() > 0 and torch.sum(add_edge_mask).item() == 0:
