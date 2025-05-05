@@ -310,7 +310,7 @@ async def run_magic_quill(request):
             steps=steps,
             cfg=cfg,
             sampler_name=sampler_name,
-            scheduler=scheduler
+            scheduler=scheduler,
         )
 
         # Convert the result tensors to base64
@@ -397,9 +397,14 @@ class MagicQuill(object):
                 "cfg": ("FLOAT", {"default": 4.0, "min": 0.0, "max": 100.0, "step":0.1, "round": 0.01, "display": "slider"}),
                 "sampler_name": (comfy.samplers.KSampler.SAMPLERS, {"default": "euler_ancestral"}),
                 "scheduler": (comfy.samplers.KSampler.SCHEDULERS, {"default": "exponential"}),
+                "optional_image_name": ("STRING", {"default": ""}),
+                "optional_original_image_name": ("STRING", {"default": ""}),
+                "optional_add_color_image_name": ("STRING", {"default": ""}),
+                "optional_add_edge_image_name": ("STRING", {"default": ""}),
+                "optional_remove_edge_image_name": ("STRING", {"default": ""}),
             },
             "optional": {
-             
+
             }
         }
 
@@ -412,6 +417,7 @@ class MagicQuill(object):
     @classmethod
     def prepare_images_and_masks(cls, image, original_image, add_color_image, add_edge_image, remove_edge_image):
         # Handle file path inputs
+        print(f"image: {image} original_image: {original_image} add_color_image: {add_color_image} add_edge_image: {add_edge_image} remove_edge_image: {remove_edge_image}")
         image_path = folder_paths.get_annotated_filepath(image)
         image_tensor = load_and_preprocess_image(image_path)
         height, width = image_tensor.shape[1], image_tensor.shape[2]
@@ -454,9 +460,21 @@ class MagicQuill(object):
         return ", ".join(ans_list)
 
     @classmethod
-    def painter_execute(cls, image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, stroke_as_edge, fine_edge, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler):
+    def painter_execute(cls, image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, stroke_as_edge, fine_edge, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler, optional_image_name = "", optional_original_image_name = "", optional_add_color_image_name = "", optional_add_edge_image_name = "", optional_remove_edge_image_name = ""):
         print(f"model: {model} vae: {vae} clip: {clip} base_model_version: {base_model_version} positive_prompt: {positive_prompt} negative_prompt: {negative_prompt} dtype: {dtype} grow_size: {grow_size} stroke_as_edge: {stroke_as_edge} fine_edge: {fine_edge} edge_strength: {edge_strength} color_strength: {color_strength} inpaint_strength: {inpaint_strength} seed: {seed} steps: {steps} cfg: {cfg} sampler_name: {sampler_name} scheduler: {scheduler}")
         print(f"original_image: {original_image} add_color_image: {add_color_image} add_edge_image: {add_edge_image} remove_edge_image: {remove_edge_image}")
+        print(f"optional_image_name: {optional_image_name} optional_original_image_name: {optional_original_image_name} optional_add_color_image_name: {optional_add_color_image_name} optional_add_edge_image_name: {optional_add_edge_image_name} optional_remove_edge_image_name: {optional_remove_edge_image_name}")
+        if optional_image_name != "":
+            image = optional_image_name
+        if optional_original_image_name != "":
+            original_image = optional_original_image_name
+        if optional_add_color_image_name != "":
+            add_color_image = optional_add_color_image_name
+        if optional_add_edge_image_name != "":
+            add_edge_image = optional_add_edge_image_name
+        if optional_remove_edge_image_name != "":
+            remove_edge_image = optional_remove_edge_image_name
+            
         add_color_image, original_image, total_mask, add_edge_mask, remove_edge_mask = cls.prepare_images_and_masks(image, original_image, add_color_image, add_edge_image, remove_edge_image)
 
         if torch.sum(remove_edge_mask).item() > 0 and torch.sum(add_edge_mask).item() == 0:

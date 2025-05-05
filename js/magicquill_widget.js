@@ -266,7 +266,7 @@ export function MaigcQuillWidget(node, inputName, inputData, app) {
   };
 
   node.onDrawBackground = (ctx) => {
-    const setting_widgets = ["base_model_version", "negative_prompt", "dtype", "grow_size", "stroke_as_edge", "fine_edge", "edge_strength", "color_strength", "inpaint_strength", "seed", "steps", "cfg", "sampler_name", "scheduler"]
+    const setting_widgets = ["base_model_version", "negative_prompt", "dtype", "grow_size", "stroke_as_edge", "fine_edge", "edge_strength", "color_strength", "inpaint_strength", "seed", "steps", "cfg", "sampler_name", "scheduler", "optional_image_name", "optional_original_image_name", "optional_add_color_image_name", "optional_add_edge_image_name", "optional_remove_edge_image_name"]
     if (!this.flags.setting_collapsed) {
       for (const w of this.widgets) {
         if (setting_widgets.includes(w.name)) {
