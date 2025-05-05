@@ -28,7 +28,7 @@ app.registerExtension({
         for (const w of this.widgets) {
           if (["collapse_setting", "clear_canvas"].includes(w.name)) {
             // always show these widgets
-          } else if (["image", "original_image", "add_color_image", "add_edge_image", "remove_edge_image", "positive_prompt"].includes(w.name)) {
+          } else if (["image", "original_image", "add_color_image", "add_edge_image", "remove_edge_image"].includes(w.name)) {
             w.type = "hidden";
             w.value = null;
             w.computeSize = () => [0, -4];
