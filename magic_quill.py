@@ -404,6 +404,7 @@ class MagicQuill(object):
             },
             "optional": {
                 "optional_image": ("IMAGE",),
+                "optional_image_mask": ("MASK",),
                 "optional_original_image": ("IMAGE",),
                 "optional_add_color_image": ("IMAGE",),
                 "optional_add_edge_mask": ("MASK",),
@@ -463,19 +464,26 @@ class MagicQuill(object):
         return ", ".join(ans_list)
 
     @classmethod
-    def painter_execute(cls, image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, stroke_as_edge, fine_edge, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler, optional_image = None, optional_original_image = None, optional_add_color_image = None, optional_add_edge_mask = None, optional_remove_edge_mask = None):
+    def painter_execute(cls, image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, stroke_as_edge, fine_edge, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler, optional_image = None, optional_image_mask = None, optional_original_image = None, optional_original_image_mask = None, optional_add_color_image = None, optional_add_color_image_mask = None, optional_add_edge_mask = None, optional_add_edge_mask_mask = None, optional_remove_edge_mask = None, optional_remove_edge_mask_mask = None):
         print(f"model: {model} vae: {vae} clip: {clip} base_model_version: {base_model_version} positive_prompt: {positive_prompt} negative_prompt: {negative_prompt} dtype: {dtype} grow_size: {grow_size} stroke_as_edge: {stroke_as_edge} fine_edge: {fine_edge} edge_strength: {edge_strength} color_strength: {color_strength} inpaint_strength: {inpaint_strength} seed: {seed} steps: {steps} cfg: {cfg} sampler_name: {sampler_name} scheduler: {scheduler}")
         print(f"original_image: {original_image} add_color_image: {add_color_image} add_edge_image: {add_edge_image} remove_edge_image: {remove_edge_image}")
-        print(f"optional_image: {optional_image} optional_original_image: {optional_original_image} optional_add_color_image: {optional_add_color_image} optional_add_edge_mask: {optional_add_edge_mask} optional_remove_edge_mask: {optional_remove_edge_mask}")
+        print(f"optional_image: {optional_image} optional_image_mask: {optional_image_mask} optional_original_image: {optional_original_image} optional_original_image_mask: {optional_original_image_mask} optional_add_color_image: {optional_add_color_image} optional_add_color_image_mask: {optional_add_color_image_mask} optional_add_edge_mask: {optional_add_edge_mask} optional_add_edge_mask_mask: {optional_add_edge_mask_mask} optional_remove_edge_mask: {optional_remove_edge_mask} optional_remove_edge_mask_mask: {optional_remove_edge_mask_mask}")
         # check if optional_original_image is tensor
-        # if isinstance(optional_original_image, torch.Tensor):
-        #     original_image = optional_original_image
-        # if isinstance(optional_add_color_image, torch.Tensor):
-        #     add_color_image = optional_add_color_image
-        # if isinstance(optional_add_edge_mask, torch.Tensor):
-        #     add_edge_mask = optional_add_edge_mask
-        # if isinstance(optional_remove_edge_mask, torch.Tensor):
-        #     remove_edge_mask = optional_remove_edge_mask       
+        if isinstance(optional_original_image, torch.Tensor):
+            original_image = optional_original_image
+        if isinstance(optional_add_color_image, torch.Tensor):
+            add_color_image = optional_add_color_image
+        if isinstance(optional_add_edge_mask, torch.Tensor):
+            add_edge_mask = optional_add_edge_mask
+        if isinstance(optional_remove_edge_mask, torch.Tensor):
+            remove_edge_mask = optional_remove_edge_mask       
+          
+        if isinstance(optional_image, torch.Tensor) and isinstance(optional_image_mask, torch.Tensor):
+            #if if not the same size, resize the mask
+            if optional_image_mask.shape[1] != optional_image.shape[1] or optional_image_mask.shape[2] != optional_image.shape[2]:
+                print("resizing mask")
+                optional_image_mask = F.interpolate(optional_image_mask.unsqueeze(0), size=(optional_image.shape[1], optional_image.shape[2]), mode='nearest').squeeze(0)
+            total_mask = optional_image_mask
           
         if isinstance(image, str) and isinstance(original_image, str) and isinstance(add_color_image, str) and isinstance(add_edge_image, str) and isinstance(remove_edge_image, str):
             add_color_image, original_image, total_mask, add_edge_mask, remove_edge_mask = cls.prepare_images_and_masks(image, original_image, add_color_image, add_edge_image, remove_edge_image)
