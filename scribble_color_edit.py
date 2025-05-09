@@ -4,14 +4,46 @@ import torch
 import sys
 import torch.utils._pytree as pytree
 import numpy as np
-
+import subprocess
 current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_dir)
-sys.path.append(os.path.abspath(os.path.join(current_dir, '..')))
+custom_nodes_dir = os.path.abspath(os.path.join(current_dir, '..'))
+sys.path.append(custom_nodes_dir)
 sys.path.append(os.path.abspath(os.path.join(current_dir, '..', '..', 'comfy_extras')))
-print(sys.path)
 
-from ComfyUI_BrushNet.brushnet_nodes import BrushNetLoader, BrushNet, BlendInpaint, get_files_with_extension
+
+brushnet_hyphen_dir = os.path.join(custom_nodes_dir, 'comfyui-brushnet')
+brushnet_underscore_dir = os.path.join(custom_nodes_dir, 'comfyui_brushnet')
+
+if not os.path.exists(brushnet_underscore_dir):
+    print(f"Creating symlink from {brushnet_hyphen_dir} to {brushnet_underscore_dir}")
+    
+    # Create the symlink - use different methods based on OS
+    if os.name == 'nt':  # Windows
+        # Requires admin privileges or developer mode
+        subprocess.run(['mklink', '/D', brushnet_underscore_dir, brushnet_hyphen_dir], shell=True)
+    else:  # Unix/Linux/Mac
+        os.symlink(brushnet_hyphen_dir, brushnet_underscore_dir)
+    
+    print(f"Symlink created: {os.path.exists(brushnet_underscore_dir)}")
+
+# Now try importing from the symlinked directory
+try:
+    # Add to path
+    sys.path.append(custom_nodes_dir)
+    
+    # Import from symlinked directory
+    from comfyui_brushnet.brushnet_nodes import BrushNetLoader, BrushNet, BlendInpaint, get_files_with_extension
+    print("Successfully imported from symlinked directory")
+except ImportError as e:
+    print(f"Import from symlink failed: {e}")
+    try:
+        from ComfyUI_BrushNet.brushnet_nodes import BrushNetLoader, BrushNet, BlendInpaint, get_files_with_extension
+    except ImportError as e:
+        print(f"Import from ComfyUI_BrushNet failed: {e}")
+        raise ImportError("Failed to import even with ComfyUI_BrushNet. Please check file permissions and structure.")
+
+
 from comfyui_controlnet_aux.node_wrappers.lineart import LineArt_Preprocessor
 from comfyui_controlnet_aux.node_wrappers.pidinet import PIDINET_Preprocessor
 from comfyui_controlnet_aux.node_wrappers.color import Color_Preprocessor
