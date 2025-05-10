@@ -527,9 +527,5 @@ class MagicQuill(object):
         return m.digest().hex()
 
     @classmethod
-    def VALIDATE_INPUTS(self, image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler):
-        if not folder_paths.exists_annotated_filepath(image):
-            print(image)
-            return "Invalid image file: {}".format(image)
-
+    def VALIDATE_INPUTS(self, image, original_image, add_color_image, add_edge_image, remove_edge_image, model, vae, clip, base_model_version, positive_prompt, negative_prompt, dtype, grow_size, edge_strength, color_strength, inpaint_strength, seed, steps, cfg, sampler_name, scheduler, optional_image = None):
         return True
