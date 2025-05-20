@@ -454,13 +454,14 @@ class MagicQuill(object):
 
     @classmethod
     def guess_prompt(cls, original_image_tensor, add_color_image_tensor, add_edge_mask):
+        cls.llavaModel.load_model()
         description, ans1, ans2 = cls.llavaModel.process(original_image_tensor, add_color_image_tensor, add_edge_mask)
         ans_list = []
         if ans1 and ans1 != "":
             ans_list.append(ans1)
         if ans2 and ans2 != "":
             ans_list.append(ans2)
-
+        cls.llavaModel.unload_model()
         return ", ".join(ans_list)
 
     @classmethod

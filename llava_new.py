@@ -23,15 +23,30 @@ import re
 class LLaVAModel:
     def __init__(self):
         # replace the model_path with correct path folder
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        models_dir = os.path.join(base_path, "models")
-        model_path = os.path.join(models_dir, "llava-v1.5-7b-finetune-clean")
+        self.base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.models_dir = os.path.join(self.base_path, "models")
+        self.model_path = os.path.join(self.models_dir, "llava-v1.5-7b-finetune-clean")
+        self.tokenizer = None
+        self.model = None
+        self.image_processor = None
+        self.context_len = None
+    def load_model(self):
         self.tokenizer, self.model, self.image_processor, self.context_len = load_pretrained_model(
-            model_path=model_path,
+            model_path=self.model_path,
             model_base=None,
-            model_name=get_model_name_from_path(model_path),
+            model_name=get_model_name_from_path(self.model_path),
             
-        )
+        )   
+
+    def unload_model(self):
+        """Unload the model and clear GPU memory."""
+        if self.model is not None:
+            self.model.cpu()
+            del self.model
+            torch.cuda.empty_cache()
+        self.tokenizer = None
+        self.image_processor = None
+        self.context_len = None
 
     def generate_description(self, images, question):
         qs = question
