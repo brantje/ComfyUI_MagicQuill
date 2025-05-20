@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ComfyUI-MagicQuill"
-version = "1.0.3"
+version = "1.0.4"
 description = "Fixed version of the original MagicQuill node."
 authors = ["brantje <brantje@gmail.com>"]
 license = { text = "MIT License" }
@@ -18,7 +18,7 @@ build-backend = "poetry.core.masonry.api"
 [project]
 name = "comfyui_magicquill_fixed" # Unique identifier for your node. Immutable after creation..
 description = "Fixed version of the original MagicQuill node. Required nodes: ComfyUI-Brushnet and ComfyUI Controlnet AUX"
-version = "1.0.3" # Custom Node version. Must be semantically versioned.
+version = "1.0.4" # Custom Node version. Must be semantically versioned.
 dependencies  = [
     'opencv-python',
     'diffusers',
